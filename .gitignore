@@ -1,0 +1,5 @@
+# 排除工作目录
+.workbuddy/
+.DS_Store
+*.pyc
+__pycache__/

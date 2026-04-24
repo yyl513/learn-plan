@@ -1,0 +1,62 @@
+name: 学习提醒推送
+
+on:
+  schedule:
+    # GitHub 学习提醒：每周一、周四 20:00 (北京时间 UTC+8 = 12:00 UTC)
+    - cron: '0 12 * * 1,4'
+    # Python 学习提醒：每周二、周五 20:00
+    - cron: '0 12 * * 2,5'
+    # 英语学习提醒：每周三、周六 20:00
+    - cron: '0 12 * * 3,6'
+    # 周末复盘：每周日 10:00 (北京时间 = 02:00 UTC)
+    - cron: '0 2 * * 0'
+  workflow_dispatch:  # 支持手动触发测试
+
+jobs:
+  push-reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: pip install requests
+
+      - name: 判断今日学习主题
+        id: day
+        run: |
+          # 获取今天是周几 (0=周日, 1=周一, ..., 6=周六)
+          DAY_OF_WEEK=$(date +%w)
+          echo "day_of_week=$DAY_OF_WEEK" >> $GITHUB_OUTPUT
+          
+          if [ "$DAY_OF_WEEK" = "1" ] || [ "$DAY_OF_WEEK" = "4" ]; then
+            echo "topic=github" >> $GITHUB_OUTPUT
+            echo "title=📚 GitHub / Git 版本控制" >> $GITHUB_OUTPUT
+          elif [ "$DAY_OF_WEEK" = "2" ] || [ "$DAY_OF_WEEK" = "5" ]; then
+            echo "topic=python" >> $GITHUB_OUTPUT
+            echo "title=💻 Python + VSCode" >> $GITHUB_OUTPUT
+          elif [ "$DAY_OF_WEEK" = "3" ] || [ "$DAY_OF_WEEK" = "6" ]; then
+            echo "topic=english" >> $GITHUB_OUTPUT
+            echo "title=🌐 英语学习" >> $GITHUB_OUTPUT
+          else
+            echo "topic=review" >> $GITHUB_OUTPUT
+            echo "title=📊 周末学习复盘" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 发送微信提醒
+        if: steps.day.outputs.topic != ''
+        env:
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          TOPIC: ${{ steps.day.outputs.topic }}
+          TITLE: ${{ steps.day.outputs.title }}
+        run: python scripts/push_reminder.py
+
+      - name: 输出日志
+        run: |
+          echo "✅ 提醒已发送！"
+          echo "📅 今日主题：${{ steps.day.outputs.title }}"
